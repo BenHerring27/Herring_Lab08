@@ -34,6 +34,8 @@ Vector2f GetTextSize(Text text) {
     return Vector2f(r.width, r.height);
 }
 
+
+
 int main()
 {
     RenderWindow window(VideoMode(800, 600), "Balloon Buster");
@@ -75,13 +77,15 @@ int main()
     right.setStatic(true);
     world.AddPhysicsBody(right);
 
-    Texture redTex;
-    LoadTex(redTex, "Lab08Images/red_balloon.png");
+    Texture duckTex;
+    LoadTex(duckTex, "Lab08Images/duck.png");
     PhysicsShapeList<PhysicsSprite> ducks;
-    for (int i(0); i < 10; i++) {
+    int i = 1;
+    while (i > 0) {
+        i--;
         PhysicsSprite& duck = ducks.Create();
-        duck.setTexture(redTex);
-        int x = 50 + ((700 / 10) * i);
+        duck.setTexture(duckTex);
+        int x = 50;
         Vector2f sz = duck.getSize();
         duck.setCenter(Vector2f(x, 20 + (sz.y / 2)));
         duck.setVelocity(Vector2f(0.25, 0));
@@ -102,6 +106,8 @@ int main()
             }
         };
     }
+    
+    
 
     top.onCollision = [&drawingArrow, &world, &arrow]
     (PhysicsBodyCollisionResult result) {
@@ -117,7 +123,7 @@ int main()
     Clock clock;
     Time lastTime(clock.getElapsedTime());
     Time currentTime(lastTime);
-    long duckMS(0);
+    Time lastDuckTime(clock.getElapsedTime());
     
 
     while ((arrows > 0) || drawingArrow) {
@@ -125,7 +131,7 @@ int main()
         Time deltaTime = currentTime - lastTime;
         long deltaMS = deltaTime.asMilliseconds();
         if (deltaMS > 9) {
-            duckMS = duckMS + deltaMS;
+             
             lastTime = currentTime;
             world.UpdatePhysics(deltaMS);
             MoveCrossbow(crossBow, deltaMS);
@@ -143,15 +149,40 @@ int main()
             if (drawingArrow) {
                 window.draw(arrow);
             }
-            ducks.DoRemovals();
+            Time duckDelta = currentTime - lastDuckTime;
+            long duckMS = duckDelta.asMilliseconds();
             if (duckMS > 2000) {
-                duckMS = 0;
-                for (PhysicsShape& duck : ducks) {
-                    window.draw((PhysicsSprite&)duck);
-                }
+                lastDuckTime = currentTime;
+                PhysicsSprite& duck = ducks.Create();
+                duck.setTexture(duckTex);
+                Vector2f sz = duck.getSize();
+                duck.setCenter(Vector2f(50, 20 + (sz.y / 2)));
+                duck.setVelocity(Vector2f(0.25, 0));
+                world.AddPhysicsBody(duck);
+                duck.onCollision =
+                    [&drawingArrow, &world, &arrow, &duck, &ducks, &score, &right]
+                (PhysicsBodyCollisionResult result) {
+                    if (result.object2 == arrow) {
+                        drawingArrow = false;
+                        world.RemovePhysicsBody(arrow);
+                        world.RemovePhysicsBody(duck);
+                        ducks.QueueRemove(duck);
+                        score += 10;
+                    }
+                    if (result.object2 == right) {
+                        world.RemovePhysicsBody(duck);
+                        ducks.QueueRemove(duck);
+                    }
+                };
             }
+            ducks.DoRemovals();
+            
+            
             
             window.draw(crossBow);
+            for (PhysicsSprite& duck : ducks) {
+                window.draw(duck);
+            }
             Text scoreText;
             scoreText.setString(to_string(score));
             scoreText.setFont(fnt);
@@ -165,12 +196,6 @@ int main()
 
             window.display();
 
-        }
-        if (duckMS < 2000) {
-            duckMS = 0;
-            for (PhysicsShape& duck : ducks) {
-                window.draw((PhysicsSprite&)duck);
-            }
         }
         
     }
